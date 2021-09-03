@@ -46,8 +46,8 @@ type KINDClusterStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:JSONPath=".status.url",name="URL",type=string
 //+kubebuilder:printcolumn:JSONPath=".status.ready",name="Ready",type=boolean
+// +kubebuilder:object:root=true
 
 // KINDCluster is the Schema for the kindclusters API
 type KINDCluster struct {

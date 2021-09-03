@@ -47,6 +47,8 @@ func init() {
 
 	utilruntime.Must(infrastructurev1alpha4.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
+
+	_ = clusterv1.AddToScheme(scheme)
 	//+kubebuilder:scaffold:scheme
 }
 

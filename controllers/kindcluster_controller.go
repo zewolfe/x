@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,14 +31,70 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	infrastructurev1alpha4 "github.com/zewolfe/cluster-api-provider-kind/api/v1alpha4"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 )
 
 // KINDClusterReconciler reconciles a KINDCluster object
 type KINDClusterReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+}
+
+type clusterReconcileContext struct {
+	ctx            context.Context
+	kindCluster    *infrastructurev1alpha4.KINDCluster
+	patchHelper    *patch.Helper
+	cluster        *clusterv1.Cluster
+	log            logr.Logger
+	client         client.Client
+	namespacedName types.NamespacedName
+}
+
+func (r *KINDClusterReconciler) newReconcileContext(ctx context.Context, req ctrl.Request) (*clusterReconcileContext, error) {
+	log := log.FromContext(ctx)
+	crc := &clusterReconcileContext{
+		log:            log.WithValues("KINDCluster", req.NamespacedName),
+		ctx:            ctx,
+		kindCluster:    &infrastructurev1alpha4.KINDCluster{},
+		client:         r.Client,
+		namespacedName: req.NamespacedName,
+	}
+
+	if err := crc.client.Get(crc.ctx, crc.namespacedName, crc.kindCluster); err != nil {
+		if apierrors.IsNotFound(err) {
+			crc.log.Info("KINDCluster Object not found")
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	helper, err := patch.NewHelper(crc.kindCluster, crc.client)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to init patch helper")
+	}
+
+	crc.patchHelper = helper
+
+	cluster, err := util.GetOwnerCluster(crc.ctx, crc.client, crc.kindCluster.ObjectMeta)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			crc.log.Info("Error getting owner cluster")
+			return nil, err
+		}
+	}
+
+	// if cluster == nil {
+	// 	crc.log.Info("Owner Cluster not set. Requeue")
+	// 	return reconcile.Result{}, nil
+	// }
+
+	crc.cluster = cluster
+
+	return crc, nil
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kindclusters,verbs=get;list;watch;create;update;patch;delete
@@ -57,43 +114,28 @@ type KINDClusterReconciler struct {
 func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	kindCluster := &infrastructurev1alpha4.KINDCluster{}
+	log.Info("Starting new Reconcile context")
 
-	if err := r.Get(ctx, req.NamespacedName, kindCluster); err != nil {
-
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-
+	crc, err := r.newReconcileContext(ctx, req)
+	if err != nil {
+		fmt.Println("Error creating reconciliation context: %w", err)
 		return ctrl.Result{}, err
 	}
 
-	log = log.WithValues("cluster", kindCluster.Name)
-	helper, err := patch.NewHelper(kindCluster, r.Client)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to init patch helper")
+	if crc == nil {
+		return reconcile.Result{}, nil
 	}
 
-	if err := helper.Patch(ctx, kindCluster); err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "couldn't patch cluster %q", kindCluster.Name)
+	if crc.cluster == nil {
+		return reconcile.Result{}, nil
 	}
 
-	kindCluster.Status.Ready = true
+	crc.kindCluster.Status.Ready = true
 
-	// Fetch the Cluster.
-	cluster, err := util.GetOwnerCluster(ctx, r.Client, kindCluster.ObjectMeta)
+	crc.log.Info("Setting cluster status to ready")
+	if err := crc.patchHelper.Patch(crc.ctx, crc.kindCluster); err != nil {
+		fmt.Println("patching cluster object: %w", err)
 
-	fmt.Println(kindCluster.ObjectMeta, "After cluster has been fetched")
-	fmt.Println("/n")
-	// fmt.Println(cluster, "After cluster has been fetched")
-	// log.Info("After cluster has been fetched")
-	log.Info(kindCluster.ObjectMeta.ClusterName)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if cluster == nil {
-		log.Info("Cluster Controller has not yet set OwnerRef")
 		return reconcile.Result{}, nil
 	}
 
@@ -104,10 +146,5 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 func (r *KINDClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrastructurev1alpha4.KINDCluster{}).
-		// Watches(
-		// 	&source.Kind{Type: &clusterv1.Cluster{}},
-		// 	&handler.EnqueueRequestsFromMapFunc{
-		// 		ToRequests: util.ClusterToInfrastructureMapFunc(infrastructurev1alpha4.GroupVersion.WithKind("KINDCluster")),
-		// 	}).
 		Complete(r)
 }
