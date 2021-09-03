@@ -6,24 +6,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: kindclusters.infrastructure.cluster.x-k8s.io
+  name: kindmachines.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
   names:
-    kind: KINDCluster
-    listKind: KINDClusterList
-    plural: kindclusters
-    singular: kindcluster
+    kind: KINDMachine
+    listKind: KINDMachineList
+    plural: kindmachines
+    singular: kindmachine
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .status.ready
-      name: Ready
-      type: boolean
-    name: v1alpha4
+  - name: v1alpha4
     schema:
       openAPIV3Schema:
-        description: KINDCluster is the Schema for the kindclusters API
+        description: KINDMachine is the Schema for the kindmachines API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -38,35 +34,15 @@ spec:
           metadata:
             type: object
           spec:
-            description: KINDClusterSpec defines the desired state of KINDCluster
+            description: KINDMachineSpec defines the desired state of KINDMachine
             properties:
-              controlPlaneEndpoint:
-                description: APIEndpoint represents a reachable Kubernetes API endpoint.
-                properties:
-                  host:
-                    description: The hostname on which the API server is serving.
-                    type: string
-                  port:
-                    description: The port on which the API server is serving.
-                    format: int32
-                    type: integer
-                required:
-                - host
-                - port
-                type: object
-              name:
-                description: Name is the name of the KINDCLuster
+              foo:
+                description: Foo is an example field of KINDMachine. Edit kindmachine_types.go
+                  to remove/update
                 type: string
-            required:
-            - name
             type: object
           status:
-            description: KINDClusterStatus defines the observed state of KINDCluster
-            properties:
-              ready:
-                type: boolean
-            required:
-            - ready
+            description: KINDMachineStatus defines the observed state of KINDMachine
             type: object
         type: object
     served: true

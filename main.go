@@ -89,6 +89,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "KINDCluster")
 		os.Exit(1)
 	}
+	if err = (&controllers.KINDMachineReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "KINDMachine")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
