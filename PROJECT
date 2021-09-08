@@ -22,4 +22,12 @@ resources:
   kind: KINDMachine
   path: github.com/zewolfe/cluster-api-provider-kind/api/v1alpha4
   version: v1alpha4
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: KINDMachineTemplate
+  path: github.com/zewolfe/cluster-api-provider-kind/api/v1alpha4
+  version: v1alpha4
 version: "3"

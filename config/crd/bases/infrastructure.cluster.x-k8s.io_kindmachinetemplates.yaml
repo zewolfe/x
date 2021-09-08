@@ -1,0 +1,76 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: kindmachinetemplates.infrastructure.cluster.x-k8s.io
+spec:
+  group: infrastructure.cluster.x-k8s.io
+  names:
+    kind: KINDMachineTemplate
+    listKind: KINDMachineTemplateList
+    plural: kindmachinetemplates
+    singular: kindmachinetemplate
+  scope: Namespaced
+  versions:
+  - name: v1alpha4
+    schema:
+      openAPIV3Schema:
+        description: KINDMachineTemplate is the Schema for the kindmachinetemplates
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: KINDMachineTemplateSpec defines the desired state of KINDMachineTemplate
+            properties:
+              template:
+                properties:
+                  spec:
+                    description: Spec is the specification of the desired behavior
+                      of the machine.
+                    properties:
+                      bootstrapped:
+                        description: Bootstrapped is true when the kubeadm bootstrapping
+                          has been run against this machine
+                        type: boolean
+                      customImage:
+                        description: CustomImage allows customizing the container
+                          image that is used for running the machine
+                        type: string
+                      providerID:
+                        description: 'INSERT ADDITIONAL SPEC FIELDS - desired state
+                          of cluster Important: Run "make" to regenerate code after
+                          modifying this file'
+                        type: string
+                    type: object
+                required:
+                - spec
+                type: object
+            required:
+            - template
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

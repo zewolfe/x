@@ -23,11 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util/conditions"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -80,12 +82,15 @@ func (r *KINDClusterReconciler) newReconcileContext(ctx context.Context, req ctr
 	crc.patchHelper = helper
 
 	cluster, err := util.GetOwnerCluster(crc.ctx, crc.client, crc.kindCluster.ObjectMeta)
+	// cluster, err := util.GetClusterFromMetadata(crc.ctx, crc.client, crc.kindCluster.ObjectMeta)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			crc.log.Info("Error getting owner cluster")
 			return nil, err
 		}
 	}
+
+	// x, err := util.GetClusterFromMetadata()
 
 	// if cluster == nil {
 	// 	crc.log.Info("Owner Cluster not set. Requeue")
@@ -111,7 +116,7 @@ func (r *KINDClusterReconciler) newReconcileContext(ctx context.Context, req ctr
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
-func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, rerr error) {
 	log := log.FromContext(ctx)
 
 	log.Info("Starting new Reconcile context")
@@ -123,28 +128,53 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	if crc == nil {
-		return reconcile.Result{}, nil
+		return ctrl.Result{}, nil
 	}
 
-	if crc.cluster == nil {
-		return reconcile.Result{}, nil
-	}
+	// if crc.cluster == nil {
+	// 	return ctrl.Result{}, nil
+	// }
 
 	crc.kindCluster.Status.Ready = true
+	conditions.MarkTrue(crc.kindCluster, clusterv1.ReadyCondition)
+	// conditions.MarkTrue(crc.kindCluster, clusterv1.ConditionType(clusterv1.ClusterPhaseProvisioned))
 
-	crc.log.Info("Setting cluster status to ready")
-	if err := crc.patchHelper.Patch(crc.ctx, crc.kindCluster); err != nil {
-		fmt.Println("patching cluster object: %w", err)
+	// Always attempt to Patch the DockerCluster object and status after each reconciliation.
+	defer func() {
+		crc.log.Info("Setting cluster status to ready")
+		if err := crc.patchHelper.Patch(crc.ctx, crc.kindCluster, patch.WithOwnedConditions{
+			Conditions: []clusterv1.ConditionType{
+				clusterv1.ReadyCondition,
+				clusterv1.ConditionType(clusterv1.ClusterPhaseProvisioned),
+			},
+		}); err != nil {
+			fmt.Println("patching cluster object: %w", err)
 
-		return reconcile.Result{}, nil
-	}
+			// return ctrl.Result{}, nil
+		}
+	}()
+	// crc.log.Info("Setting cluster status to ready")
+	// if err := crc.patchHelper.Patch(crc.ctx, crc.kindCluster); err != nil {
+	// 	fmt.Println("patching cluster object: %w", err)
+
+	// 	return ctrl.Result{}, nil
+	// }
 
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *KINDClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	c, err := ctrl.NewControllerManagedBy(mgr).
 		For(&infrastructurev1alpha4.KINDCluster{}).
-		Complete(r)
+		Build(r)
+
+	if err != nil {
+		return err
+	}
+
+	return c.Watch(
+		&source.Kind{Type: &clusterv1.Cluster{}},
+		handler.EnqueueRequestsFromMapFunc(util.ClusterToInfrastructureMapFunc(infrastructurev1alpha4.GroupVersion.WithKind("KINDCluster"))),
+	)
 }

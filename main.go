@@ -26,6 +26,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,17 +39,19 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
+	myscheme = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(clientgoscheme.AddToScheme(myscheme))
 
-	utilruntime.Must(infrastructurev1alpha4.AddToScheme(scheme))
-	utilruntime.Must(clusterv1.AddToScheme(scheme))
+	utilruntime.Must(infrastructurev1alpha4.AddToScheme(myscheme))
+	utilruntime.Must(clusterv1.AddToScheme(myscheme))
 
-	_ = clusterv1.AddToScheme(scheme)
+	_ = scheme.AddToScheme(myscheme)
+	_ = clusterv1.AddToScheme(myscheme)
+	// utilruntime.Must(infrastructurev1alpha4.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -70,7 +73,7 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
+		Scheme:                 myscheme,
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,

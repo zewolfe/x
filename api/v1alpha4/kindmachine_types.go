@@ -18,6 +18,7 @@ package v1alpha4
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -27,17 +28,32 @@ import (
 type KINDMachineSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	// +optional
+	ProviderID *string `json:"providerID,omitempty"`
 
-	// Foo is an example field of KINDMachine. Edit kindmachine_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// CustomImage allows customizing the container image that is used for
+	// running the machine
+	// +optional
+	CustomImage string `json:"customImage,omitempty"`
+
+	// Bootstrapped is true when the kubeadm bootstrapping has been run
+	// against this machine
+	// +optional
+	Bootstrapped bool `json:"bootstrapped,omitempty"`
 }
 
 // KINDMachineStatus defines the observed state of KINDMachine
 type KINDMachineStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	// +optional
+	Ready bool `json:"ready"`
+
+	// +optional
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
+// +kubebuilder:resource:path=kindmachines,scope=Namespaced,categories=cluster-api
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
@@ -48,6 +64,14 @@ type KINDMachine struct {
 
 	Spec   KINDMachineSpec   `json:"spec,omitempty"`
 	Status KINDMachineStatus `json:"status,omitempty"`
+}
+
+func (c *KINDMachine) GetConditions() clusterv1.Conditions {
+	return c.Status.Conditions
+}
+
+func (c *KINDMachine) SetConditions(conditions clusterv1.Conditions) {
+	c.Status.Conditions = conditions
 }
 
 //+kubebuilder:object:root=true

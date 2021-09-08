@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	infrastructurev1alpha4 "github.com/zewolfe/cluster-api-provider-kind/api/v1alpha4"
 )
@@ -47,8 +46,68 @@ type KINDMachineReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
 func (r *KINDMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	// log := log.FromContext(ctx)
 
+	// kindMachine := &infrastructurev1alpha4.KINDMachine{}
+	// if err := r.Client.Get(ctx, req.NamespacedName, kindMachine); err != nil {
+	// 	if apierrors.IsNotFound(err) {
+	// 		return ctrl.Result{}, nil
+	// 	}
+	// 	return ctrl.Result{}, err
+	// }
+
+	// // Fetch the Machine.
+	// machine, err := util.GetOwnerMachine(ctx, r.Client, kindMachine.ObjectMeta)
+	// if err != nil {
+	// 	return ctrl.Result{}, err
+	// }
+	// if machine == nil {
+	// 	log.Info("Waiting for Machine Controller to set OwnerRef on DockerMachine")
+	// 	return ctrl.Result{}, nil
+	// }
+
+	// log = log.WithValues("machine", machine.Name)
+
+	// cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
+	// if err != nil {
+	// 	log.Info("KindMachine owner Machine is missing cluster label or cluster does not exist")
+	// 	return ctrl.Result{}, err
+	// }
+	// if cluster == nil {
+	// 	log.Info(fmt.Sprintf("Please associate this machine with a cluster using the label %s: <name of cluster>", clusterv1.ClusterLabelName))
+	// 	return ctrl.Result{}, nil
+	// }
+
+	// log = log.WithValues("cluster", cluster.Name)
+
+	// // Fetch the Docker Cluster.
+	// dockerCluster := &infrastructurev1alpha4.KINDCluster{}
+	// dockerClusterName := client.ObjectKey{
+	// 	Namespace: kindMachine.Namespace,
+	// 	Name:      cluster.Spec.InfrastructureRef.Name,
+	// }
+	// if err := r.Client.Get(ctx, dockerClusterName, dockerCluster); err != nil {
+	// 	log.Info("KindCluster is not available yet")
+	// 	return ctrl.Result{}, nil
+	// }
+
+	// log = log.WithValues("kind-cluster", dockerCluster.Name)
+
+	// // Initialize the patch helper
+	// patchHelper, err := patch.NewHelper(kindMachine, r.Client)
+	// if err != nil {
+	// 	return ctrl.Result{}, err
+	// }
+	// // Always attempt to Patch the DockerMachine object and status after each reconciliation.
+	// defer func() {
+	// 	if err := patchHelper.Patch(ctx, kindMachine); err != nil {
+	// 		log.Error(err, "failed to patch DockerMachine")
+	// 	}
+	// }()
+
+	// kindMachine.Status.Ready = true
+
+	// conditions.MarkTrue(kindMachine, clusterv1.BootstrapReadyCondition)
 	// your logic here
 
 	return ctrl.Result{}, nil

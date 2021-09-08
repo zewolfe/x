@@ -40,14 +40,19 @@ type KINDClusterSpec struct {
 type KINDClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-
+	// +optional
 	Ready bool `json:"ready"`
+
+	// Conditions defines current service state of the DockerCluster.
+	// +optional
+	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:JSONPath=".status.ready",name="Ready",type=boolean
-// +kubebuilder:object:root=true
+// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this KVMCluster belongs"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Cluster infrastructure is ready for KVM machines"
+// +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".spec.controlPlaneEndpoint",description="API Endpoint",priority=1
 
 // KINDCluster is the Schema for the kindclusters API
 type KINDCluster struct {
@@ -56,6 +61,14 @@ type KINDCluster struct {
 
 	Spec   KINDClusterSpec   `json:"spec,omitempty"`
 	Status KINDClusterStatus `json:"status,omitempty"`
+}
+
+func (c *KINDCluster) GetConditions() clusterv1.Conditions {
+	return c.Status.Conditions
+}
+
+func (c *KINDCluster) SetConditions(conditions clusterv1.Conditions) {
+	c.Status.Conditions = conditions
 }
 
 //+kubebuilder:object:root=true
