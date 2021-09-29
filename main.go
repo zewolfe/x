@@ -51,7 +51,6 @@ func init() {
 
 	_ = scheme.AddToScheme(myscheme)
 	_ = clusterv1.AddToScheme(myscheme)
-	// utilruntime.Must(infrastructurev1alpha4.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -90,13 +89,6 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "KINDCluster")
-		os.Exit(1)
-	}
-	if err = (&controllers.KINDMachineReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "KINDMachine")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

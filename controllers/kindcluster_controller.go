@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -36,6 +37,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	infrastructurev1alpha4 "github.com/zewolfe/cluster-api-provider-kind/api/v1alpha4"
+	"github.com/zewolfe/cluster-api-provider-kind/kind"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 )
 
@@ -82,29 +84,20 @@ func (r *KINDClusterReconciler) newReconcileContext(ctx context.Context, req ctr
 	crc.patchHelper = helper
 
 	cluster, err := util.GetOwnerCluster(crc.ctx, crc.client, crc.kindCluster.ObjectMeta)
-	// cluster, err := util.GetClusterFromMetadata(crc.ctx, crc.client, crc.kindCluster.ObjectMeta)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			crc.log.Info("Error getting owner cluster")
 			return nil, err
 		}
 	}
-
-	// x, err := util.GetClusterFromMetadata()
-
-	// if cluster == nil {
-	// 	crc.log.Info("Owner Cluster not set. Requeue")
-	// 	return reconcile.Result{}, nil
-	// }
-
 	crc.cluster = cluster
 
 	return crc, nil
 }
 
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kindclusters,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kindclusters/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kindclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kindclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kindclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=kindclusters/finalizers,verbs=update
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -131,34 +124,61 @@ func (r *KINDClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	// if crc.cluster == nil {
-	// 	return ctrl.Result{}, nil
-	// }
-
-	crc.kindCluster.Status.Ready = true
-	conditions.MarkTrue(crc.kindCluster, clusterv1.ReadyCondition)
-	// conditions.MarkTrue(crc.kindCluster, clusterv1.ConditionType(clusterv1.ClusterPhaseProvisioned))
-
-	// Always attempt to Patch the DockerCluster object and status after each reconciliation.
+	// Always attempt to Patch the KindCluster object and status after each reconciliation.
 	defer func() {
 		crc.log.Info("Setting cluster status to ready")
 		if err := crc.patchHelper.Patch(crc.ctx, crc.kindCluster, patch.WithOwnedConditions{
 			Conditions: []clusterv1.ConditionType{
 				clusterv1.ReadyCondition,
-				clusterv1.ConditionType(clusterv1.ClusterPhaseProvisioned),
 			},
 		}); err != nil {
 			fmt.Println("patching cluster object: %w", err)
-
-			// return ctrl.Result{}, nil
+			if rerr == nil {
+				rerr = err
+			}
 		}
 	}()
-	// crc.log.Info("Setting cluster status to ready")
-	// if err := crc.patchHelper.Patch(crc.ctx, crc.kindCluster); err != nil {
-	// 	fmt.Println("patching cluster object: %w", err)
 
-	// 	return ctrl.Result{}, nil
-	// }
+	// Add finalizer first if not exist to avoid the race condition between init and delete
+	if !controllerutil.ContainsFinalizer(crc.kindCluster, infrastructurev1alpha4.ClusterFinalizer) {
+		controllerutil.AddFinalizer(crc.kindCluster, infrastructurev1alpha4.ClusterFinalizer)
+		return ctrl.Result{}, nil
+	}
+
+	if !crc.kindCluster.DeletionTimestamp.IsZero() {
+		return r.reconcileDelete(crc)
+	}
+
+	err = kind.CreateCluster(crc.kindCluster.Name, crc.kindCluster.Spec.Version)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	crc.kindCluster.Status.Ready = true
+	conditions.MarkTrue(crc.kindCluster, clusterv1.ReadyCondition)
+
+	return ctrl.Result{}, nil
+}
+
+func (r *KINDClusterReconciler) reconcileDelete(crc *clusterReconcileContext) (ctrl.Result, error) {
+	if err := kind.DeleteCluster(crc.kindCluster.GetObjectMeta().GetName()); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	crc.kindCluster.Status.Ready = false
+	conditions.MarkFalse(crc.kindCluster, clusterv1.ReadyCondition, clusterv1.DeletingReason, clusterv1.ConditionSeverityInfo, "")
+
+	if err := crc.patchHelper.Patch(crc.ctx, crc.kindCluster, patch.WithOwnedConditions{
+		Conditions: []clusterv1.ConditionType{
+			clusterv1.ReadyCondition,
+		},
+	}); err != nil {
+		fmt.Println("patching cluster object: %w", err)
+		return ctrl.Result{}, err
+	}
+
+	// Cluster is deleted so remove the finalizer.
+	controllerutil.RemoveFinalizer(crc.kindCluster, infrastructurev1alpha4.ClusterFinalizer)
 
 	return ctrl.Result{}, nil
 }

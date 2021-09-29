@@ -21,6 +21,12 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha4"
 )
 
+const (
+	// ClusterFinalizer allows DockerClusterReconciler to clean up resources associated with DockerCluster before
+	// removing it from the apiserver.
+	ClusterFinalizer = "kindcluster.infrastructure.cluster.x-k8s.io"
+)
+
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
@@ -34,6 +40,10 @@ type KINDClusterSpec struct {
 
 	// +optional
 	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
+
+	// Kubernetes Version
+	// +kubebuilder:validation:Enum="1.21";"1.20";"1.19";"1.18";"1.17";
+	Version string `json:"version"`
 }
 
 // KINDClusterStatus defines the observed state of KINDCluster
